@@ -2024,7 +2024,7 @@ class MaskRCNN(object):
                                               train_bn=config.TRAIN_BN)
 
             # TODO: clean up (use tf.identify if necessary)
-            output_rois = KL.Lambda(lambda x: x * 1,output_shape=lambda input_shape: input_shape,name="output_rois")(rois)
+             output_rois = KL.Lambda(lambda x: x * 1,output_shape=lambda input_shape: input_shape,name="output_rois")(rois)
 
             # Losses
 	    rpn_class_loss = KL.Lambda(lambda x: rpn_class_loss_graph(*x),output_shape=(None,), name="rpn_class_loss")(
