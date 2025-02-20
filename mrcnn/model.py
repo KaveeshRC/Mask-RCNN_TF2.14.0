@@ -2112,7 +2112,7 @@ class MaskRCNN(object):
                 errno.ENOENT, "Could not find weight files in {}".format(dir_name))
         checkpoint = os.path.join(dir_name, checkpoints[-1])
         return checkpoint
-
+'''
     def load_weights(self, filepath, by_name=False, exclude=None):
         """Modified version of the corresponding Keras function with
         the addition of multi-GPU support and the ability to exclude
@@ -2153,7 +2153,9 @@ class MaskRCNN(object):
 
         # Update the log directory
         self.set_log_dir(filepath)
-
+'''
+    def load_weights(self, filepath, by_name=False, exclude=None):
+        self.keras_model.load_weights(filepath, by_name=by_name, skip_mismatch=True)
     def get_imagenet_weights(self):
         """Downloads ImageNet trained weights from Keras.
         Returns path to weights file.
