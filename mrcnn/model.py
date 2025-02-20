@@ -2024,18 +2024,18 @@ class MaskRCNN(object):
                                               train_bn=config.TRAIN_BN)
 
             # TODO: clean up (use tf.identify if necessary)
-	    output_rois = KL.Lambda(lambda x: x * 1,output_shape=lambda input_shape: input_shape,name="output_rois")(rois)
+            output_rois = KL.Lambda(lambda x: x * 1,output_shape=lambda input_shape: input_shape,name="output_rois")(rois)
 
             # Losses
-	    rpn_class_loss = KL.Lambda(lambda x: rpn_class_loss_graph(*x),output_shape=(None,), name="rpn_class_loss")(
-		    [input_rpn_match, rpn_class_logits])	
-            rpn_bbox_loss = KL.Lambda(lambda x: rpn_bbox_loss_graph(config, *x),output_shape=(None,),  name="rpn_bbox_loss")(
+            rpn_class_loss = KL.Lambda(lambda x: rpn_class_loss_graph(*x),output_shape=(None,), name="rpn_class_loss")(
+                [input_rpn_match, rpn_class_logits])	
+            rpn_bbox_loss = KL.Lambda(lambda x: rpn_bbox_loss_graph(config, *x),output_shape=(None,), name="rpn_bbox_loss")(
                 [input_rpn_bbox, input_rpn_match, rpn_bbox])
-            class_loss = KL.Lambda(lambda x: mrcnn_class_loss_graph(*x),output_shape=(None,),  name="mrcnn_class_loss")(
+            class_loss = KL.Lambda(lambda x: mrcnn_class_loss_graph(*x),output_shape=(None,), name="mrcnn_class_loss")(
                 [target_class_ids, mrcnn_class_logits, active_class_ids])
-            bbox_loss = KL.Lambda(lambda x: mrcnn_bbox_loss_graph(*x),output_shape=(None,),  name="mrcnn_bbox_loss")(
+            bbox_loss = KL.Lambda(lambda x: mrcnn_bbox_loss_graph(*x),output_shape=(None,), name="mrcnn_bbox_loss")(
                 [target_bbox, target_class_ids, mrcnn_bbox])
-            mask_loss = KL.Lambda(lambda x: mrcnn_mask_loss_graph(*x),output_shape=(None,),  name="mrcnn_mask_loss")(
+            mask_loss = KL.Lambda(lambda x: mrcnn_mask_loss_graph(*x),output_shape=(None,), name="mrcnn_mask_loss")(
                 [target_mask, target_class_ids, mrcnn_mask])
 
             # Model
