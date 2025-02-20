@@ -889,8 +889,9 @@ def rpn_graph(feature_map, anchors_per_location, anchor_stride):
                   activation='linear', name='rpn_class_raw')(shared)
 
     # Reshape to [batch, anchors, 2]
-    rpn_class_logits = KL.Lambda(
-        lambda t: tf.reshape(t, [tf.shape(input=t)[0], -1, 2]))(x)
+    rpn_class_logits = KL.Lambda(lambda t: tf.reshape(t, [tf.shape(t)[0], -1, 2]),
+				 output_shape=lambda input_shape: (input_shape[0], None, 2)  # Dynamic second dim
+				)(x)
 
     # Softmax on last dimension of BG/FG.
     rpn_probs = KL.Activation(
@@ -902,7 +903,8 @@ def rpn_graph(feature_map, anchors_per_location, anchor_stride):
                   activation='linear', name='rpn_bbox_pred')(shared)
 
     # Reshape to [batch, anchors, 4]
-    rpn_bbox = KL.Lambda(lambda t: tf.reshape(t, [tf.shape(input=t)[0], -1, 4]))(x)
+    rpn_bbox = KL.Lambda(lambda t: tf.reshape(t, [tf.shape(t)[0], -1, 4]),output_shape=lambda input_shape: (input_shape[0], None, 4)
+			)(x)
 
     return [rpn_class_logits, rpn_probs, rpn_bbox]
 
@@ -969,8 +971,8 @@ def fpn_classifier_graph(rois, feature_maps, image_meta,
     x = KL.TimeDistributed(BatchNorm(), name='mrcnn_class_bn2')(x, training=train_bn)
     x = KL.Activation('relu')(x)
 
-    shared = KL.Lambda(lambda x: K.squeeze(K.squeeze(x, 3), 2),
-                       name="pool_squeeze")(x)
+    shared = KL.Lambda(lambda x: K.squeeze(K.squeeze(x, 3), 2),output_shape=lambda input_shape: (input_shape[0], input_shape[-1]),  # Removes dims 2 and 3
+		       name="pool_squeeze")(x)
 
     # Classifier head
     mrcnn_class_logits = KL.TimeDistributed(KL.Dense(num_classes),
@@ -1879,8 +1881,9 @@ class MaskRCNN(object):
             input_gt_boxes = KL.Input(
                 shape=[None, 4], name="input_gt_boxes", dtype=tf.float32)
             # Normalize coordinates
-            gt_boxes = KL.Lambda(lambda x: norm_boxes_graph(
-                x, K.shape(input_image)[1:3]))(input_gt_boxes)
+            gt_boxes = KL.Lambda(lambda x: norm_boxes_graph(x, K.shape(input_image)[1:3]),
+				 output_shape=lambda input_shape: (input_shape[0], None, 4)  # Same as input except last dim
+				)(input_gt_boxes)
             # 3. GT Masks (zero padded)
             # [batch, height, width, MAX_GT_INSTANCES]
             if config.USE_MINI_MASK:
@@ -1983,17 +1986,18 @@ class MaskRCNN(object):
         if mode == "training":
             # Class ID mask to mark class IDs supported by the dataset the image
             # came from.
-            active_class_ids = KL.Lambda(
-                lambda x: parse_image_meta_graph(x)["active_class_ids"]
-                )(input_image_meta)
+            active_class_ids = KL.Lambda(lambda x: parse_image_meta_graph(x)["active_class_ids"],
+					 output_shape=(None, NUM_CLASSES)  # Adjust NUM_CLASSES to your dataset
+					)(input_image_meta)
 
             if not config.USE_RPN_ROIS:
                 # Ignore predicted ROIs and use ROIs provided as an input.
                 input_rois = KL.Input(shape=[config.POST_NMS_ROIS_TRAINING, 4],
                                       name="input_roi", dtype=np.int32)
                 # Normalize coordinates
-                target_rois = KL.Lambda(lambda x: norm_boxes_graph(
-                    x, K.shape(input_image)[1:3]))(input_rois)
+                target_rois = KL.Lambda(lambda x: norm_boxes_graph(x, K.shape(input_image)[1:3]),
+					output_shape=lambda input_shape: (input_shape[0], None, 4)
+				       )(input_rois)
             else:
                 target_rois = rpn_rois
 
@@ -2020,18 +2024,18 @@ class MaskRCNN(object):
                                               train_bn=config.TRAIN_BN)
 
             # TODO: clean up (use tf.identify if necessary)
-            output_rois = KL.Lambda(lambda x: x * 1, name="output_rois")(rois)
+            output_rois = KL.Lambda(lambda x: x * 1,output_shape=lambda input_shape: input_shape,name="output_rois")(rois)
 
             # Losses
-            rpn_class_loss = KL.Lambda(lambda x: rpn_class_loss_graph(*x), name="rpn_class_loss")(
-                [input_rpn_match, rpn_class_logits])
-            rpn_bbox_loss = KL.Lambda(lambda x: rpn_bbox_loss_graph(config, *x), name="rpn_bbox_loss")(
+	    rpn_class_loss = KL.Lambda(lambda x: rpn_class_loss_graph(*x),output_shape=(None,), name="rpn_class_loss")(
+		    [input_rpn_match, rpn_class_logits])	
+            rpn_bbox_loss = KL.Lambda(lambda x: rpn_bbox_loss_graph(config, *x),output_shape=(None,),  name="rpn_bbox_loss")(
                 [input_rpn_bbox, input_rpn_match, rpn_bbox])
-            class_loss = KL.Lambda(lambda x: mrcnn_class_loss_graph(*x), name="mrcnn_class_loss")(
+            class_loss = KL.Lambda(lambda x: mrcnn_class_loss_graph(*x),output_shape=(None,),  name="mrcnn_class_loss")(
                 [target_class_ids, mrcnn_class_logits, active_class_ids])
-            bbox_loss = KL.Lambda(lambda x: mrcnn_bbox_loss_graph(*x), name="mrcnn_bbox_loss")(
+            bbox_loss = KL.Lambda(lambda x: mrcnn_bbox_loss_graph(*x),output_shape=(None,),  name="mrcnn_bbox_loss")(
                 [target_bbox, target_class_ids, mrcnn_bbox])
-            mask_loss = KL.Lambda(lambda x: mrcnn_mask_loss_graph(*x), name="mrcnn_mask_loss")(
+            mask_loss = KL.Lambda(lambda x: mrcnn_mask_loss_graph(*x),output_shape=(None,),  name="mrcnn_mask_loss")(
                 [target_mask, target_class_ids, mrcnn_mask])
 
             # Model
@@ -2060,7 +2064,8 @@ class MaskRCNN(object):
                 [rpn_rois, mrcnn_class, mrcnn_bbox, input_image_meta])
 
             # Create masks for detections
-            detection_boxes = KL.Lambda(lambda x: x[..., :4])(detections)
+            detection_boxes = KL.Lambda(lambda x: x[..., :4],output_shape=lambda input_shape: (input_shape[0], input_shape[1], 4),name="detection_boxes"
+				       )(detections)
             mrcnn_mask = build_fpn_mask_graph(detection_boxes, mrcnn_feature_maps,
                                               input_image_meta,
                                               config.MASK_POOL_SIZE,
