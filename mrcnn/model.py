@@ -1987,7 +1987,7 @@ class MaskRCNN(object):
             # Class ID mask to mark class IDs supported by the dataset the image
             # came from.
             active_class_ids = KL.Lambda(lambda x: parse_image_meta_graph(x)["active_class_ids"],
-					 output_shape=(None, NUM_CLASSES)  # Adjust NUM_CLASSES to your dataset
+					 output_shape=(None, 4)  # Adjust 4 to your dataset (Number of Classes) 
 					)(input_image_meta)
 
             if not config.USE_RPN_ROIS:
